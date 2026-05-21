@@ -1,57 +1,150 @@
 <!doctype html>
 <html lang="pl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rejestr przestojów linii</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rejestr przestojów linii produkcyjnej</title>
 
-<style>
-body { font-family: Arial; margin:0; background:#f5f7f8; }
-.app { max-width:1100px; margin:auto; padding:20px; }
-h1 { margin-bottom:10px; }
-.panel { background:white; padding:15px; border-radius:10px; margin-bottom:10px; }
-button { padding:10px; margin:5px; cursor:pointer; }
-.stop { background:#b42318; color:white; }
-.work { background:#127a52; color:white; }
-table { width:100%; border-collapse:collapse; background:white; }
-td,th { padding:8px; border-bottom:1px solid #ddd; }
-.timer { font-size:30px; font-weight:bold; }
-</style>
+  <style>
+    :root {
+      --bg: #f5f7f8;
+      --panel: #ffffff;
+      --ink: #172026;
+      --muted: #5e6b74;
+      --line: #d9e0e4;
+      --work: #127a52;
+      --stop: #b42318;
+      --setup: #8a4b0f;
+      --micro: #285f9f;
+      --reg: #6b4ca3;
+      --other: #4f5962;
+      --shadow: 0 10px 28px rgba(23, 32, 38, 0.08);
+    }
 
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .app {
+      width: min(1180px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 18px 0 24px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    h1 { margin: 0; font-size: 28px; }
+
+    .clock {
+      min-width: 210px;
+      padding: 12px 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      text-align: right;
+      font-size: 16px;
+      color: var(--muted);
+    }
+
+    .clock strong {
+      display: block;
+      color: var(--ink);
+      font-size: 25px;
+    }
+
+    .status-panel {
+      display: grid;
+      grid-template-columns: 390px 1fr;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .current {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-left: 10px solid var(--work);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .status-name { font-size: 40px; font-weight: 800; }
+
+    .timer {
+      margin-top: 14px;
+      font-size: 34px;
+      font-weight: 800;
+    }
+
+    button {
+      cursor: pointer;
+      border: 0;
+      padding: 12px;
+      margin: 4px;
+      border-radius: 8px;
+      color: white;
+      font-weight: bold;
+    }
+
+    .work { background: var(--work); }
+    .awaria { background: var(--stop); }
+    .mikro { background: var(--micro); }
+    .setup { background: var(--setup); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid #ddd;
+    }
+  </style>
 </head>
+
 <body>
 
 <div class="app">
 
-<h1>Rejestr przestojów</h1>
+  <div class="topbar">
+    <h1>Rejestr przestojów</h1>
+    <div class="clock">
+      <strong id="timeNow">--:--:--</strong>
+      <div id="dateNow">---</div>
+    </div>
+  </div>
 
-<div class="panel">
-  <div><b>Status:</b> <span id="status">Ładowanie...</span></div>
-  <div class="timer" id="timer">00:00:00</div>
-</div>
+  <div class="status-panel">
+    <div class="current" id="currentPanel">
+      <div class="status-name" id="statusName">Praca</div>
+      <div class="timer" id="timer">00:00:00</div>
+    </div>
 
-<div class="panel">
-  <select id="linia">
-    <option>L 1/2</option>
-    <option>L 6/7</option>
-    <option>L 8</option>
-    <option>L 9</option>
-    <option>L 10</option>
-    <option>L 11</option>
-    <option>L 12</option>
-    <option>L 15</option>
-    <option>L 16</option>
-    <option>L 19</option>
-    <option>L 20</option>
-  </select>
+    <div>
+      <select id="lineName"></select>
 
-  <button class="stop" onclick="startStop('Awaria')">Awaria</button>
-  <button class="stop" onclick="startStop('Brak materiału')">Brak materiału</button>
-  <button class="stop" onclick="startStop('Mikroprzestój')">Mikro</button>
-  <button class="work" onclick="startStop('Praca')">Praca</button>
-</div>
+      <button class="awaria" onclick="setStatus('Awaria','Postój')">Awaria</button>
+      <button class="mikro" onclick="setStatus('Mikroprzestój','Postój')">Mikro</button>
+      <button class="setup" onclick="setStatus('Przezbrojenie','Planowane')">Przezbrojenie</button>
+      <button class="work" onclick="setStatus('Praca','Praca')">Praca</button>
+    </div>
+  </div>
 
-<div class="panel">
   <h3>Rejestr</h3>
   <table>
     <thead>
@@ -63,26 +156,44 @@ td,th { padding:8px; border-bottom:1px solid #ddd; }
     </thead>
     <tbody id="table"></tbody>
   </table>
-</div>
 
 </div>
 
 <script>
+
+const lineOptions = ["L 1/2","L 6/7","L 8","L 9","L 10","L 11","L 12","L 15","L 16","L 19","L 20"];
+
 let data = [];
+let state = {
+  current: {
+    status: "Praca",
+    start: Date.now()
+  }
+};
+
+document.getElementById("lineName").innerHTML =
+  lineOptions.map(l => `<option>${l}</option>`).join("");
 
 async function load() {
-  const res = await fetch("/api/dane");
-  data = await res.json();
+  const res = await fetch("/api/data");
+  const json = await res.json();
+
+  data = json.all || [];
+
+  if (json.current) {
+    state.current = json.current;   // 🔥 JEDNO ŹRÓDŁO CZASU
+  }
+
   render();
 }
 
-async function startStop(status) {
-  const linia = document.getElementById("linia").value;
+async function setStatus(status, kind) {
+  const linia = document.getElementById("lineName").value;
 
-  await fetch("/api/dodaj", {
-    method:"POST",
+  await fetch("/api/set", {
+    method: "POST",
     headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ linia, status })
+    body: JSON.stringify({ linia, status, kind })
   });
 
   load();
@@ -92,45 +203,47 @@ function render() {
   const table = document.getElementById("table");
   table.innerHTML = "";
 
-  if (!data.length) {
-    document.getElementById("status").innerText = "Brak danych";
-    return;
-  }
+  if (!data.length) return;
 
   const last = data[data.length - 1];
-  document.getElementById("status").innerText = last.status;
+  document.getElementById("statusName").innerText = last.status;
 
   data.forEach(d => {
     table.innerHTML += `
       <tr>
         <td>${d.status}</td>
         <td>${d.linia}</td>
-        <td>${d.czasTrwaniaMin ?? 0} min</td>
+        <td>${d.minutes || 0} min</td>
       </tr>
     `;
   });
 }
 
 function tick() {
-  if (!data.length) return;
+  const now = Date.now();
+  const diff = now - state.current.start;
 
-  const last = data[data.length - 1];
+  const min = Math.floor(diff / 60000);
+  const h = Math.floor(min / 60);
+  const m = min % 60;
 
-  if (last.status !== "Praca") {
-    const diff = Date.now() - last.startCzas;
-    const min = Math.floor(diff / 60000);
-    document.getElementById("timer").innerText =
-      String(Math.floor(min/60)).padStart(2,"0") + ":" +
-      String(min%60).padStart(2,"0") + ":00";
-  } else {
-    document.getElementById("timer").innerText = "00:00:00";
-  }
+  document.getElementById("timer").innerText =
+    String(h).padStart(2,"0") + ":" +
+    String(m).padStart(2,"0") + ":00";
 }
 
-setInterval(load, 5000);
+function clock() {
+  const now = new Date();
+  document.getElementById("timeNow").innerText = now.toLocaleTimeString("pl-PL");
+  document.getElementById("dateNow").innerText = now.toLocaleDateString("pl-PL");
+}
+
+setInterval(clock, 1000);
 setInterval(tick, 1000);
+setInterval(load, 4000);
 
 load();
+
 </script>
 
 </body>

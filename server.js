@@ -8,9 +8,9 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// =======================
+// =====================
 // SESJA
-// =======================
+// =====================
 app.use(session({
   secret: "tajny_klucz_123",
   resave: false,
@@ -20,10 +20,9 @@ app.use(session({
 const USER = "admin";
 const PASS = "1234";
 
-// =======================
+// =====================
 // LOGIN
-// =======================
-
+// =====================
 app.get("/login", (req, res) => {
   res.send(`
     <h2>🔐 Logowanie</h2>
@@ -51,17 +50,14 @@ app.get("/logout", (req, res) => {
   res.redirect("/login");
 });
 
-// =======================
-// OCHRONA
-// =======================
 function checkAuth(req, res, next) {
   if (req.session.auth) return next();
   return res.redirect("/login");
 }
 
-// =======================
+// =====================
 // BAZA
-// =======================
+// =====================
 const DATA_FILE = path.join(__dirname, "dane.json");
 
 function getData() {
@@ -73,43 +69,16 @@ function saveData(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
-// =======================
+// =====================
 // STRONA
-// =======================
-
+// =====================
 app.get("/", checkAuth, (req, res) => {
   res.sendFile(path.join(__dirname, "przestoje_linii_produkcyjnej.html"));
 });
 
-// =======================
-// API - DANE (POPRAWIONE LICZENIE CZASU)
-// =======================
-
-app.get("/api/dane", checkAuth, (req, res) => {
-  const dane = getData();
-  const teraz = Date.now();
-
-  const wynik = dane.map(x => {
-    let czas = x.sumaMinut || 0;
-
-    // liczymy tylko jeśli trwa przestój
-    if (x.status === "przestoj") {
-      czas += Math.floor((teraz - x.startCzas) / 60000);
-    }
-
-    return {
-      ...x,
-      czasTrwaniaMin: czas
-    };
-  });
-
-  res.json(wynik);
-});
-
-// =======================
+// =====================
 // DODAJ PRZESTÓJ
-// =======================
-
+// =====================
 app.post("/api/dodaj", checkAuth, (req, res) => {
   const dane = getData();
 
@@ -118,7 +87,7 @@ app.post("/api/dodaj", checkAuth, (req, res) => {
     linia: req.body.linia || "brak",
     status: "przestoj",
     startCzas: Date.now(),
-    sumaMinut: 0
+    czasTrwaniaMin: 0
   };
 
   dane.push(nowy);
@@ -127,25 +96,21 @@ app.post("/api/dodaj", checkAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// =======================
-// ZAKOŃCZ PRZESTÓJ (ważne!)
-// =======================
-
+// =====================
+// ZAKOŃCZ PRZESTÓJ (KLUCZ)
+// =====================
 app.post("/api/zakoncz", checkAuth, (req, res) => {
   const dane = getData();
   const teraz = Date.now();
 
-  const id = req.body.id;
-
   const updated = dane.map(x => {
-    if (x.id == id && x.status === "przestoj") {
-      const dodatkowyCzas = Math.floor((teraz - x.startCzas) / 60000);
+    if (x.id == req.body.id && x.status === "przestoj") {
+      const czas = Math.floor((teraz - x.startCzas) / 60000);
 
       return {
         ...x,
         status: "praca",
-        sumaMinut: (x.sumaMinut || 0) + dodatkowyCzas,
-        startCzas: null
+        czasTrwaniaMin: czas
       };
     }
     return x;
@@ -156,10 +121,16 @@ app.post("/api/zakoncz", checkAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// =======================
-// USUŃ
-// =======================
+// =====================
+// POBIERZ DANE (BEZ LICZENIA!)
+// =====================
+app.get("/api/dane", checkAuth, (req, res) => {
+  res.json(getData());
+});
 
+// =====================
+// USUŃ
+// =====================
 app.post("/api/usun", checkAuth, (req, res) => {
   let dane = getData();
 
@@ -170,10 +141,9 @@ app.post("/api/usun", checkAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// =======================
+// =====================
 // START
-// =======================
-
+// =====================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

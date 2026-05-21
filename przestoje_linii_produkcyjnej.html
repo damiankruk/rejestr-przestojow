@@ -867,7 +867,8 @@
           start: new Date().toISOString(),
           note: ""
         },
-        entries: []
+        entries: [],
+        updatedAt: 0
       };
     }
 
@@ -906,6 +907,7 @@
     }
 
     function saveState() {
+      state.updatedAt = Date.now();
       lineStates[activeLine] = state;
       localStorage.setItem(lineStatesKey, JSON.stringify(lineStates));
       saveLineToServer(activeLine, state);
@@ -936,11 +938,25 @@
     async function saveLineToServer(line, lineState) {
       if (!serverMode) return;
       try {
-        await fetch("/api/line", {
+        const response = await fetch("/api/line", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ line, state: lineState })
         });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.lineStates && typeof data.lineStates === "object") {
+          lineOptions.forEach((lineName) => {
+            if (data.lineStates[lineName]) {
+              lineStates[lineName] = data.lineStates[lineName];
+            }
+          });
+          state = getLineState(activeLine);
+          localStorage.setItem(lineStatesKey, JSON.stringify(lineStates));
+          render();
+          renderAllLines();
+          renderChart();
+        }
       } catch {
         // Dane zostaja w tej przegladarce i zostana nadpisane przy kolejnym zapisie, gdy serwer wroci.
       }
@@ -956,7 +972,6 @@
     }
 
     function switchLine() {
-      saveState();
       activeLine = normalizeLine(refs.lineName.value);
       refs.lineName.value = activeLine;
       refs.chartLine.value = activeLine;
@@ -981,7 +996,8 @@
       return lineOptions.includes(line) ? line : "L 1/2";
     }
 
-    function setStatus(status, kind) {
+    async function setStatus(status, kind) {
+      await syncFromServer();
       const now = new Date();
       const currentStart = new Date(state.current.start);
       const durationSeconds = Math.max(0, Math.round((now - currentStart) / 1000));

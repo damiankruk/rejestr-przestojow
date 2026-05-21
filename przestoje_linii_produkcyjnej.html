@@ -519,6 +519,25 @@
       text-align: center;
     }
 
+    .server-warning {
+      display: none;
+      margin: 0 0 14px;
+      padding: 14px 16px;
+      border: 2px solid #b42318;
+      border-radius: 8px;
+      background: #fff1f0;
+      color: #7a1d14;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+
+    .server-warning strong {
+      display: block;
+      margin-bottom: 4px;
+      color: #b42318;
+      font-size: 17px;
+    }
+
     @media (max-width: 820px) {
       .topbar,
       .status-panel {
@@ -561,6 +580,11 @@
         <span id="dateNow">--</span>
       </div>
     </section>
+
+    <div class="server-warning" id="serverWarning">
+      <strong>Aplikacja jest otwarta z pliku lokalnego.</strong>
+      W tym trybie kazdy komputer ma osobne dane. Otworz adres https://rejestr-przestojow.onrender.com, zeby widziec te same czasy na komputerze i telefonie.
+    </div>
 
     <nav class="tabs" aria-label="Widoki">
       <button class="tab-button active" data-view="operatorView" type="button">Obsługa linii</button>
@@ -816,7 +840,8 @@
       chartShift: document.getElementById("chartShift"),
       chartLabel: document.getElementById("chartLabel"),
       pieChart: document.getElementById("pieChart"),
-      chartLegend: document.getElementById("chartLegend")
+      chartLegend: document.getElementById("chartLegend"),
+      serverWarning: document.getElementById("serverWarning")
     };
 
     refs.lineName.value = activeLine;
@@ -827,6 +852,7 @@
     refs.chartLine.value = activeLine;
     refs.chartDate.value = formatDate(new Date());
     refs.chartShift.value = shiftForDate(new Date()).id;
+    refs.serverWarning.style.display = serverMode ? "none" : "block";
 
     document.querySelectorAll(".reason").forEach((button) => {
       button.addEventListener("click", () => setStatus(button.dataset.status, button.dataset.kind));
@@ -1448,30 +1474,4 @@
     }
 
     function parseDate(text) {
-      const [year, month, day] = text.split("-").map(Number);
-      return new Date(year, month - 1, day);
-    }
-
-    function parseDateTime(text) {
-      const [datePart, timePart] = text.split(" ");
-      const [year, month, day] = datePart.split("-").map(Number);
-      const [hour, minute, second] = timePart.split(":").map(Number);
-      return new Date(year, month - 1, day, hour, minute, second);
-    }
-
-    function csvCell(value) {
-      const text = String(value ?? "");
-      return '"' + text.replaceAll('"', '""') + '"';
-    }
-
-    function escapeHtml(value) {
-      return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-  </script>
-</body>
-</html>
+      

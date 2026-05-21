@@ -77,6 +77,29 @@ app.get("/", checkAuth, (req, res) => {
 });
 
 // =====================
+// DANE (KLUCZ — LICZENIE NA SERWERZE)
+// =====================
+app.get("/api/dane", checkAuth, (req, res) => {
+  const dane = getData();
+  const teraz = Date.now();
+
+  const wynik = dane.map(x => {
+    if (x.status === "przestoj") {
+      return {
+        ...x,
+        czasTrwaniaMin: Math.floor((teraz - x.startCzas) / 60000)
+      };
+    }
+    return {
+      ...x,
+      czasTrwaniaMin: x.czasTrwaniaMin || 0
+    };
+  });
+
+  res.json(wynik);
+});
+
+// =====================
 // DODAJ PRZESTÓJ
 // =====================
 app.post("/api/dodaj", checkAuth, (req, res) => {
@@ -86,8 +109,7 @@ app.post("/api/dodaj", checkAuth, (req, res) => {
     id: Date.now(),
     linia: req.body.linia || "brak",
     status: "przestoj",
-    startCzas: Date.now(),
-    czasTrwaniaMin: 0
+    startCzas: Date.now()
   };
 
   dane.push(nowy);
@@ -97,7 +119,7 @@ app.post("/api/dodaj", checkAuth, (req, res) => {
 });
 
 // =====================
-// ZAKOŃCZ PRZESTÓJ (KLUCZ)
+// ZAKOŃCZ PRZESTÓJ
 // =====================
 app.post("/api/zakoncz", checkAuth, (req, res) => {
   const dane = getData();
@@ -105,12 +127,10 @@ app.post("/api/zakoncz", checkAuth, (req, res) => {
 
   const updated = dane.map(x => {
     if (x.id == req.body.id && x.status === "przestoj") {
-      const czas = Math.floor((teraz - x.startCzas) / 60000);
-
       return {
         ...x,
         status: "praca",
-        czasTrwaniaMin: czas
+        czasTrwaniaMin: Math.floor((teraz - x.startCzas) / 60000)
       };
     }
     return x;
@@ -122,27 +142,7 @@ app.post("/api/zakoncz", checkAuth, (req, res) => {
 });
 
 // =====================
-// POBIERZ DANE (BEZ LICZENIA!)
-// =====================
-app.get("/api/dane", checkAuth, (req, res) => {
-  res.json(getData());
-});
-
-// =====================
-// USUŃ
-// =====================
-app.post("/api/usun", checkAuth, (req, res) => {
-  let dane = getData();
-
-  dane = dane.filter(x => x.id != req.body.id);
-
-  saveData(dane);
-
-  res.json({ ok: true });
-});
-
-// =====================
-// START
+// START SERWERA
 // =====================
 const PORT = process.env.PORT || 3000;
 

@@ -898,6 +898,24 @@
       };
     }
 
+    function normalizeState(savedState) {
+      const fallback = defaultState();
+      const cleanState = savedState && typeof savedState === "object" ? savedState : {};
+      const cleanCurrent = cleanState.current && typeof cleanState.current === "object" ? cleanState.current : {};
+      const start = new Date(cleanCurrent.start);
+
+      return {
+        current: {
+          status: cleanCurrent.status || fallback.current.status,
+          kind: cleanCurrent.kind || fallback.current.kind,
+          start: Number.isNaN(start.getTime()) ? fallback.current.start : cleanCurrent.start,
+          note: cleanCurrent.note || ""
+        },
+        entries: Array.isArray(cleanState.entries) ? cleanState.entries : [],
+        updatedAt: Number(cleanState.updatedAt || 0)
+      };
+    }
+
     function loadLineStates() {
       const states = {};
       const fallback = defaultState();
@@ -905,11 +923,11 @@
       try {
         const saved = JSON.parse(localStorage.getItem(lineStatesKey)) || {};
         lineOptions.forEach((line) => {
-          if (saved[line]) states[line] = saved[line];
+          if (saved[line]) states[line] = normalizeState(saved[line]);
         });
         const legacy = JSON.parse(localStorage.getItem(storeKey));
         if (legacy && !states[activeLine]) {
-          states[activeLine] = legacy;
+          states[activeLine] = normalizeState(legacy);
         }
         return states;
       } catch {
@@ -918,9 +936,7 @@
     }
 
     function getLineState(line) {
-      if (!lineStates[line]) {
-        lineStates[line] = defaultState();
-      }
+      lineStates[line] = normalizeState(lineStates[line]);
       return lineStates[line];
     }
 
@@ -948,7 +964,7 @@
         if (!data.lineStates || typeof data.lineStates !== "object") return;
         lineOptions.forEach((line) => {
           if (data.lineStates[line]) {
-            lineStates[line] = data.lineStates[line];
+            lineStates[line] = normalizeState(data.lineStates[line]);
           }
         });
         state = getLineState(activeLine);
@@ -974,7 +990,7 @@
         if (data.lineStates && typeof data.lineStates === "object") {
           lineOptions.forEach((lineName) => {
             if (data.lineStates[lineName]) {
-              lineStates[lineName] = data.lineStates[lineName];
+              lineStates[lineName] = normalizeState(data.lineStates[lineName]);
             }
           });
           state = getLineState(activeLine);
@@ -1022,8 +1038,7 @@
       return lineOptions.includes(line) ? line : "L 1/2";
     }
 
-    async function setStatus(status, kind) {
-      await syncFromServer();
+    function setStatus(status, kind) {
       const now = new Date();
       const currentStart = new Date(state.current.start);
       const durationSeconds = Math.max(0, Math.round((now - currentStart) / 1000));
@@ -1474,4 +1489,30 @@
     }
 
     function parseDate(text) {
-      
+      const [year, month, day] = text.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    function parseDateTime(text) {
+      const [datePart, timePart] = text.split(" ");
+      const [year, month, day] = datePart.split("-").map(Number);
+      const [hour, minute, second] = timePart.split(":").map(Number);
+      return new Date(year, month - 1, day, hour, minute, second);
+    }
+
+    function csvCell(value) {
+      const text = String(value ?? "");
+      return '"' + text.replaceAll('"', '""') + '"';
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+  </script>
+</body>
+</html>

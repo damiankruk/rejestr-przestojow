@@ -1,4 +1,4 @@
-const express = require("express");
+onst express = require("express");
 const session = require("express-session");
 const fs = require("fs");
 const path = require("path");
@@ -9,7 +9,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // =======================
-// SESJA
+// SESJA LOGOWANIA
 // =======================
 app.use(session({
   secret: "tajny_klucz_123",
@@ -17,12 +17,12 @@ app.use(session({
   saveUninitialized: true
 }));
 
+const USER = "admin";
+const PASS = "1234";
+
 // =======================
 // LOGIN
 // =======================
-
-const USER = "admin";
-const PASS = "1234"; // <-- zmień hasło tutaj
 
 app.get("/login", (req, res) => {
   res.send(`
@@ -52,18 +52,16 @@ app.get("/logout", (req, res) => {
 });
 
 // =======================
-// OCHRONA APLIKACJI
+// OCHRONA
 // =======================
-
 function checkAuth(req, res, next) {
   if (req.session.auth) return next();
   return res.redirect("/login");
 }
 
 // =======================
-// BAZA DANYCH
+// BAZA
 // =======================
-
 const DATA_FILE = path.join(__dirname, "dane.json");
 
 function getData() {
@@ -76,7 +74,7 @@ function saveData(data) {
 }
 
 // =======================
-// STRONA GŁÓWNA
+// STRONA
 // =======================
 
 app.get("/", checkAuth, (req, res) => {
@@ -84,19 +82,37 @@ app.get("/", checkAuth, (req, res) => {
 });
 
 // =======================
-// API
+// API - POBIERZ DANE (POPRAWIONE LICZENIE CZASU)
 // =======================
 
 app.get("/api/dane", checkAuth, (req, res) => {
-  res.json(getData());
+  const dane = getData();
+  const teraz = Date.now();
+
+  const poprawione = dane.map(item => {
+    return {
+      ...item,
+      czasTrwaniaMin: item.startCzas
+        ? Math.floor((teraz - item.startCzas) / 60000)
+        : 0
+    };
+  });
+
+  res.json(poprawione);
 });
+
+// =======================
+// API - DODAJ (START CZASU NA SERWERZE)
+// =======================
 
 app.post("/api/dodaj", checkAuth, (req, res) => {
   const dane = getData();
 
   const nowy = {
     id: Date.now(),
-    ...req.body
+    status: req.body.status || "praca",
+    linia: req.body.linia || "",
+    startCzas: Date.now() // 🔥 KLUCZOWE - jeden wspólny czas
   };
 
   dane.push(nowy);
@@ -104,6 +120,10 @@ app.post("/api/dodaj", checkAuth, (req, res) => {
 
   res.json({ ok: true });
 });
+
+// =======================
+// API - USUŃ
+// =======================
 
 app.post("/api/usun", checkAuth, (req, res) => {
   let dane = getData();

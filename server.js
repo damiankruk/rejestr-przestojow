@@ -1,93 +1,126 @@
 const express = require("express");
+const session = require("express-session");
 const fs = require("fs");
 const path = require("path");
 
 const app = express();
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// =======================
+// SESJA
+// =======================
+app.use(session({
+  secret: "tajny_klucz_123",
+  resave: false,
+  saveUninitialized: true
+}));
+
+// =======================
+// LOGIN
+// =======================
+
+const USER = "admin";
+const PASS = "1234"; // <-- zmień hasło tutaj
+
+app.get("/login", (req, res) => {
+  res.send(`
+    <h2>🔐 Logowanie</h2>
+    <form method="POST" action="/login">
+      <input name="user" placeholder="login" />
+      <input name="pass" type="password" placeholder="hasło" />
+      <button>Zaloguj</button>
+    </form>
+  `);
+});
+
+app.post("/login", (req, res) => {
+  const { user, pass } = req.body;
+
+  if (user === USER && pass === PASS) {
+    req.session.auth = true;
+    return res.redirect("/");
+  }
+
+  res.send("❌ Błędne dane <a href='/login'>wróć</a>");
+});
+
+app.get("/logout", (req, res) => {
+  req.session.destroy();
+  res.redirect("/login");
+});
+
+// =======================
+// OCHRONA APLIKACJI
+// =======================
+
+function checkAuth(req, res, next) {
+  if (req.session.auth) return next();
+  return res.redirect("/login");
+}
+
+// =======================
+// BAZA DANYCH
+// =======================
+
 const DATA_FILE = path.join(__dirname, "dane.json");
 
-// =======================
-// FUNKCJE BAZY DANYCH
-// =======================
-
 function getData() {
-  try {
-    if (!fs.existsSync(DATA_FILE)) return [];
-    const data = fs.readFileSync(DATA_FILE, "utf8");
-    return JSON.parse(data || "[]");
-  } catch (err) {
-    console.error("Błąd odczytu danych:", err);
-    return [];
-  }
+  if (!fs.existsSync(DATA_FILE)) return [];
+  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
 }
 
 function saveData(data) {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error("Błąd zapisu danych:", err);
-  }
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
 // =======================
 // STRONA GŁÓWNA
 // =======================
 
-app.get("/", (req, res) => {
+app.get("/", checkAuth, (req, res) => {
   res.sendFile(path.join(__dirname, "przestoje_linii_produkcyjnej.html"));
 });
 
 // =======================
-// API - POBIERZ DANE
+// API
 // =======================
 
-app.get("/api/dane", (req, res) => {
-  const dane = getData();
-  res.json(dane);
+app.get("/api/dane", checkAuth, (req, res) => {
+  res.json(getData());
 });
 
-// =======================
-// API - DODAJ WPIS
-// =======================
-
-app.post("/api/dodaj", (req, res) => {
+app.post("/api/dodaj", checkAuth, (req, res) => {
   const dane = getData();
 
-  const nowyWpis = {
+  const nowy = {
     id: Date.now(),
     ...req.body
   };
 
-  dane.push(nowyWpis);
+  dane.push(nowy);
   saveData(dane);
 
-  res.json({ success: true, data: nowyWpis });
+  res.json({ ok: true });
 });
 
-// =======================
-// API - USUŃ WPIS
-// =======================
-
-app.post("/api/usun", (req, res) => {
+app.post("/api/usun", checkAuth, (req, res) => {
   let dane = getData();
 
-  const id = req.body.id;
-
-  dane = dane.filter(item => item.id != id);
+  dane = dane.filter(x => x.id != req.body.id);
 
   saveData(dane);
 
-  res.json({ success: true });
+  res.json({ ok: true });
 });
 
 // =======================
-// START SERWERA
+// START
 // =======================
 
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("Serwer działa na porcie " + PORT);
+  console.log("Server działa na porcie " + PORT);
 });

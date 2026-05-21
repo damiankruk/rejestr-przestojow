@@ -1,4 +1,4 @@
-onst express = require("express");
+const express = require("express");
 const session = require("express-session");
 const fs = require("fs");
 const path = require("path");
@@ -9,7 +9,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // =======================
-// SESJA LOGOWANIA
+// SESJA
 // =======================
 app.use(session({
   secret: "tajny_klucz_123",
@@ -82,27 +82,32 @@ app.get("/", checkAuth, (req, res) => {
 });
 
 // =======================
-// API - POBIERZ DANE (POPRAWIONE LICZENIE CZASU)
+// API - DANE (POPRAWIONE LICZENIE CZASU)
 // =======================
 
 app.get("/api/dane", checkAuth, (req, res) => {
   const dane = getData();
   const teraz = Date.now();
 
-  const poprawione = dane.map(item => {
+  const wynik = dane.map(x => {
+    let czas = x.sumaMinut || 0;
+
+    // liczymy tylko jeśli trwa przestój
+    if (x.status === "przestoj") {
+      czas += Math.floor((teraz - x.startCzas) / 60000);
+    }
+
     return {
-      ...item,
-      czasTrwaniaMin: item.startCzas
-        ? Math.floor((teraz - item.startCzas) / 60000)
-        : 0
+      ...x,
+      czasTrwaniaMin: czas
     };
   });
 
-  res.json(poprawione);
+  res.json(wynik);
 });
 
 // =======================
-// API - DODAJ (START CZASU NA SERWERZE)
+// DODAJ PRZESTÓJ
 // =======================
 
 app.post("/api/dodaj", checkAuth, (req, res) => {
@@ -110,9 +115,10 @@ app.post("/api/dodaj", checkAuth, (req, res) => {
 
   const nowy = {
     id: Date.now(),
-    status: req.body.status || "praca",
-    linia: req.body.linia || "",
-    startCzas: Date.now() // 🔥 KLUCZOWE - jeden wspólny czas
+    linia: req.body.linia || "brak",
+    status: "przestoj",
+    startCzas: Date.now(),
+    sumaMinut: 0
   };
 
   dane.push(nowy);
@@ -122,7 +128,36 @@ app.post("/api/dodaj", checkAuth, (req, res) => {
 });
 
 // =======================
-// API - USUŃ
+// ZAKOŃCZ PRZESTÓJ (ważne!)
+// =======================
+
+app.post("/api/zakoncz", checkAuth, (req, res) => {
+  const dane = getData();
+  const teraz = Date.now();
+
+  const id = req.body.id;
+
+  const updated = dane.map(x => {
+    if (x.id == id && x.status === "przestoj") {
+      const dodatkowyCzas = Math.floor((teraz - x.startCzas) / 60000);
+
+      return {
+        ...x,
+        status: "praca",
+        sumaMinut: (x.sumaMinut || 0) + dodatkowyCzas,
+        startCzas: null
+      };
+    }
+    return x;
+  });
+
+  saveData(updated);
+
+  res.json({ ok: true });
+});
+
+// =======================
+// USUŃ
 // =======================
 
 app.post("/api/usun", checkAuth, (req, res) => {
